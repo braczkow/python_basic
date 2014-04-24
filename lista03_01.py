@@ -18,4 +18,6 @@ print timeit.timeit('prime_list_fil(100)',
 'from __main__ import prime_list_fil', number = iterations)
 
 
+DUUUUUPAAAAAAAA
+
 
