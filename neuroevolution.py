@@ -12,8 +12,6 @@ POPULATION = 20
 NEURONS = 7
 
 
-
-
 class GeneticAlgorithm:
 	def __init__(self, class_type, fitness_function):
 		self.class_type = class_type
@@ -31,7 +29,7 @@ class GeneticAlgorithm:
 		leader_candidate = self.current_generation[0]
 
 		if leader_candidate.fitness > self.leader.fitness:
-			print "Changed leader from ", self.leader.fitness, " to ", leader_candidate.fitness
+			print "Changing leader from ", self.leader.fitness, " to ", leader_candidate.fitness
 			self.leader = copy.deepcopy(leader_candidate)
 
 
@@ -82,20 +80,21 @@ def xor_fitness(neuro_system):
 
 	return 4 - scalar_diff
 
-def xor_fitness_debug(neuro_system):
-	inputs =[[0, 0], [0, 1], [1, 0], [1, 1]]
-	expected = [0, 1, 1, 0]
-	actual = [neuro_system.step(i) for i in inputs]
-
-	print "actual: " + str(actual)
-
-	diff = [(p - q[0])*(p - q[0]) for p, q in zip(expected, actual)]
-
-	scalar_diff = sum(diff)
-
-	return 4 - scalar_diff
 
 for i in range(10):
 	print "Run no. ", i
 	ga = GeneticAlgorithm(neuro_system_impl, xor_fitness)
 	ga.run(GENERATIONS, POPULATION)
+	#print debug
+	leader = ga.leader
+	leader.print_debug = True
+
+	fitness = xor_fitness(leader)
+	print "Leader fitness, default stability_iterations: ", fitness
+
+	leader.stability_iterations = 101
+
+	fitness = xor_fitness(leader)
+	print "Leader fitness, nondefault stability_iterations: ", fitness
+
+
