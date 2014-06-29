@@ -2,96 +2,120 @@ import random
 import math
 import copy
 
-MUTATION_RATE = 0.02
+MUTATION_RATE = 0.67
 MUTATION_MEAN = 0
-MUTATION_SIGMA = 0.5
+MUTATION_SIGMA = 0.05
 
-STABILITY_LEVEL = 0.01
-STABILITY_ITERATIONS = 100
+STABILITY_LEVEL = 0.001
+STABILITY_ITERATIONS_MAX = 500
+STABILITY_ITERATIONS_MIN = 10
 
-class Neuron:
-	def __init__(self, N, id):
-		self.N = N
-		self.weights = []
-		self.id = id
-		self.value = 0
-		self.beta = 5
-		self.catched_input = 0
+class WeightsDict:
+	def __init__(self):
+		self.weights = {}
 
-		for i in range (0, N):
-			self.weights.append(random.uniform(-1, 1));
-		
-		self.weights[id] = 0
-		
+	def __getitem__(self, key):
+		key.sort()
+		return self.weights[(key[0], key[1])]
+
+	def __setitem__(self, key, value):
+		key.sort()
+		self.weights[(key[0], key[1])] = value
+
 	def __str__(self):
-		return "id: " + str(self.id) + " value: " + str(self.value) + "(" + '; '.join([str(w) for w in self.weights]) + ")"
-
-	def catch_inputs(self, current_state):
-		self.catched_input = sum(p*q for p,q in zip(self.weights, current_state))
-
-	def update(self):
-		self.value = 1/(1 + math.exp(-1 * self.beta * self.catched_input))
-
-	def mutate(self):
-		global MUTATION_RATE
-		global MUTATION_MEAN
-		global MUTATION_SIGMA
-
-		for i in range (0, self.N):
-			rand = random.uniform(0, 1)
-			if rand < MUTATION_RATE:
-				change = random.normalvariate(MUTATION_MEAN, MUTATION_SIGMA)
-				self.weights[i] = self.weights[i] + change
-
-		self.weights[self.id] = 0
+		return str(self.weights)
 
 
 class NeuroSystem:
 	def __init__(self, N, n_to_return):
 		self.N = N
 		self.n_to_return = n_to_return
-		self.neurons = []
+		self.beta = 5
+		
 		self.print_debug = False
 
+		self.weights = WeightsDict()
+		self.current_state = [0 for i in range(N)]
+
+		#wieghts between neurons
+		for i in range (0, N):
+			for j in range (i, N):
+				self.weights[[i, j]] = random.uniform(-1, 1)
+
+		#no self feedback
+		for i in range(N):
+			self.weights[[i, i]] = 0
+
+
 		global STABILITY_LEVEL
-		global STABILITY_ITERATIONS
+		global STABILITY_ITERATIONS_MIN
+		global STABILITY_ITERATIONS_MAX
+
 
 		self.stability_level = STABILITY_LEVEL
-		self.stability_iterations = STABILITY_ITERATIONS
+		self.stability_iterations_min = STABILITY_ITERATIONS_MIN
+		self.stability_iterations_max = STABILITY_ITERATIONS_MAX
 
-
-		for i in range(0, N):
-			self.neurons.append(Neuron(N, i));
-			
 	def __str__(self):
-		return "N: " + str(self.N) +'\n' + ', '.join([str(n) for n in self.neurons])
+		res = "N: " + str(self.N) + " " + ', '.join([str(s) for s in self.current_state])
+		if self.print_debug:
+			res = res + "\n" + str(self.weights)
+
+		return res
 
 	def _advance(self):	
-		current_state = [n.value for n in self.neurons];
+		update_id = random.randrange(0, self.N)
+
+		#if self.print_debug:
+		#	print "update_id: ", update_id
+		#	print "current_state[update_id]: ", self.current_state[update_id]
+
+		inputs = [self.weights[[i, update_id]] * self.current_state[i] for i in range (self.N)]
+
+		#self.current_state[update_id] = 1/(1 + math.exp(-1 * self.beta * sum(inputs)))
+
+		#if self.print_debug:
+		#	print "inputs: ", sum(inputs), " for id: ", update_id
+
+		new_state = 0
+		if sum(inputs) > 0:
+			new_state = 1
+		else:
+			new_state = -1
+
+		if self.print_debug:
+			if new_state != self.current_state[update_id]:
+				print "Changed value of ", update_id, " from ", self.current_state[update_id], " to ", new_state
+
+		self.current_state[update_id] = new_state
+
+
+		#if self.print_debug:
+		#	print "current_state[update_id]: ", self.current_state[update_id]
 			
-		for i in range(0, self.N):
-			self.neurons[i].catch_inputs(current_state);
-
-		for i in range(0, self.N):
-			self.neurons[i].update();
-
-	def _stabilize(self):
 
 
+	def _proceed(self):
 		i = 0
 		not_stable = True
 		scalar_diff = 0
 		return_diff = 0
-		while i < self.stability_iterations and not_stable:
-			current_state = [n.value for n in self.neurons];
-			self._advance()
-			new_state = [n.value for n in self.neurons];
+
+		while i < self.stability_iterations_min or (i < self.stability_iterations_max and not_stable):
+			current_state = list(self.current_state)
+			
+			for j in range(self.N):
+				self._advance()
+
+			new_state = self.current_state
 
 			diff = [(p-q)*(p-q) for p, q in zip(current_state, new_state)]
 			scalar_diff = sum(diff)
 
 			if scalar_diff < self.stability_level:
 				not_stable = False
+			else:
+				not_stable = True
 
 			i = i+1
 
@@ -103,9 +127,8 @@ class NeuroSystem:
 
 		if self.print_debug:
 			print "Stable after ", i
-			print "scalar_diff ", scalar_diff
-			print "return_diff ", return_diff 
-
+			#print "scalar_diff ", scalar_diff
+			#print "return_diff ", return_diff 
 
 
 		
@@ -113,38 +136,60 @@ class NeuroSystem:
 		if len(inputs) > self.N:
 			print "len(inputs) > self.N"
 			return
+
+		self.current_state = [0 for i in range(self.N)]
 		
 		for i in range(0, len(inputs)):
-			self.neurons[i].value = inputs[i]
+			self.current_state[i] = inputs[i]
 
-		self._stabilize()
+		self._proceed()
 		
 
-		return [self.neurons[i].value for i in range(self.N - self.n_to_return, self.N)]
+		return [self.current_state[i] for i in range(self.N - self.n_to_return, self.N)]
+		
+
+		return ret
 
 	def _cross(self, partner):
 		if self.N != partner.N:
 			print "We cannot DO it!"
 			return
 
-		neurons = []
+		new_weights = WeightsDict()
+
 		for i in range(0, self.N):
-			toss = bool(random.getrandbits(1))
-			if (toss):
-				neurons.append(self.neurons[i])
-			else:
-				neurons.append(partner.neurons[i])
+			for j in range (i, self.N):
+				toss = bool(random.getrandbits(1))
+				if (toss):
+					new_weights[[i, j]] = self.weights[[i, j]]
+				else:
+					new_weights[[i, j]] = partner.weights[[i, j]]
 
 		offspring = NeuroSystem(self.N, self.n_to_return)
-		offspring.neurons = neurons
+		offspring.weights = new_weights
 
 		return offspring
 
 	def _mutate(self):
-		[n.mutate() for n in self.neurons]
+		global MUTATION_RATE
+		global MUTATION_MEAN
+		global MUTATION_SIGMA
+
+		for i in range (0, self.N):
+			for j in range (i, self.N):
+				rand = random.uniform(0, 1)
+				if rand < MUTATION_RATE:
+					change = random.normalvariate(MUTATION_MEAN, MUTATION_SIGMA)
+					self.weights[[i, j]] = self.weights[[i, j]] + change
+
+					if self.print_debug:
+						print "Changed weights ", i, " ", j, " by ", change
+
+		for i in range(self.N):
+			self.weights[[i, i]] = 0		
 
 
-	def evolve(self, partner):
+	def reproduce(self, partner):
 		offspring = self._cross(partner)
 		offspring._mutate()
 
