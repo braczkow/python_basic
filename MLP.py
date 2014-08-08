@@ -13,8 +13,20 @@ class MLPLayer:
 			self._weights.append([0] * (1 + self.n_inputs))
 
 
+	def __str__(self):
+		ret = ""
+		i = 0
+		for n in self._weights:
+			ret = ret + "#" + str(i) + " "
+			i = i+1 
+			ret = ret + str(n)
+			ret = ret + "\n"
+
+		return ret
+
+
 	def step(self, inputs):
-		print inputs
+		print "Layer input: " + str(inputs)
 		inputs.append(1)
 		output = []
 		for w in self._weights:
@@ -22,6 +34,9 @@ class MLPLayer:
 			output.append(1/(1 + math.exp(-inputs_weighted)))
 
 		return output
+
+
+	
 
 class MLPNetwork:
 	def __init__(self, n_layers, n_neurons_per_layer):
@@ -33,6 +48,16 @@ class MLPNetwork:
 
 		for i in range(1, n_layers):
 			self._layers.append(MLPLayer(n_neurons_per_layer[i], n_neurons_per_layer[i-1]))
+
+	def __str__(self):
+		ret = ""
+		i = 0
+		for l in self._layers:
+			ret = ret + "###" + str(i) + "\n"
+			i = i+1
+			ret = ret + str(l)
+		
+		return ret
 
 	def step(self, inputs):
 		if len(inputs) != self._input_size:
@@ -55,7 +80,12 @@ class MLPNetworkEvolutor:
 	
 	def reproduce(self):
 		self._cross()
+		print "MLNetworkEvolutor : after _cross"
+		print self._offspring
+
 		self._mutate()
+		print "MLNetworkEvolutor : after_mutate"
+		print self._offspring
 		
 	def _cross(self):
 		if len(self._lhs._layers) != len(self._rhs._layers):
@@ -88,13 +118,25 @@ class MLPNetworkEvolutor:
 
 			return layer
 
-			
+	def _mutate_neuron(self, neuron):
+		print "_mutate_neuron : " + str(neuron)
+	
+		ret =  [(w+random.normalvariate(0, 0.1)) for w in neuron]
+		print "_nutate_neuron : ret = " + str(ret)
+		return ret
+
+	def _mutate_layer(self, layer):
+		print "_mutate_layer : \n" + str(layer)
+		
+		new_layer = MLPLayer(layer.n_neurons, layer.n_inputs)		
+		ret = [self._mutate_neuron(n) for n in layer._weights]
+		new_layer._weights = ret
+	
+		print "_mutate_layer : ret=\n" + str(new_layer)
+		return new_layer
 
 	def _mutate(self):
-		for l in self._offspring._layers:
-			for n in l._weights:
-				for w in n:
-					w = w + random.normalvariate(0, 0.1)
+		self._offspring._layers = [self._mutate_layer(l) for l in self._offspring._layers]
 
 	def get_offspring(self):
 		return self._offspring
@@ -106,8 +148,19 @@ class MLP_NE_System:
 
 
 
+print "MLPLayer: "
+layer = MLPLayer(3, 2)
+
+print str(layer)
+
+print "== MLPNetwor"
 nn = MLPNetwork(3, [2, 2, 1])
-nn.step([2, 3])
+
+print "stepping: "
+print nn.step([2, 3])
+
+print "== print MLPNetwork"
+print str(nn)
 
 nn2 = MLPNetwork(3, [2, 2, 1])
 
@@ -116,5 +169,6 @@ mne.reproduce()
 
 offspring = mne.get_offspring()
 
-
+print "== offspring:"
+print str(offspring)
 
