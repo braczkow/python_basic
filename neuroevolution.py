@@ -3,18 +3,17 @@ import math
 import copy
 
 import nn
+import MLP
 
 #random.seed(3)
 
-GENERATIONS = 500
+GENERATIONS = 3000
 POPULATION = 20
 
-NEURONS = 7
-
-
 class GeneticAlgorithm:
-	def __init__(self, class_type, fitness_function):
-		self.class_type = class_type
+	def __init__(self, neuronet_type, evolutor_type, fitness_function):
+		self.neuronet_type = neuronet_type
+		self.evolutor_type = evolutor_type
 		self.fitness_function = fitness_function
 
 		self.leader = None
@@ -42,8 +41,10 @@ class GeneticAlgorithm:
 			parent_a = parents.pop(random.randrange(0, len(parents)))
 			parent_b = parents.pop(random.randrange(0, len(parents)))
 
-			new_generation.append(parent_a.reproduce(parent_b))
-			new_generation.append(parent_a.reproduce(parent_b))
+			evolutor = self.evolutor_type(parent_a, parent_b)
+
+			new_generation.append(evolutor.reproduce())
+			new_generation.append(evolutor.reproduce())
 			new_generation.append(parent_a)
 			new_generation.append(parent_b)
 
@@ -56,7 +57,7 @@ class GeneticAlgorithm:
 		self.n_generations = n_generations
 		self.n_population = n_population
 
-		self.current_generation = [self.class_type() for i in range(n_population)]
+		self.current_generation = [self.neuronet_type() for i in range(n_population)]
 		self.leader = self.current_generation[0]
 		self.leader.fitness = -100
 
@@ -66,14 +67,20 @@ class GeneticAlgorithm:
 		return self.leader
 
 
-def neuro_system_impl():
-	global NEURONS
-	return nn.NeuroSystem(NEURONS, 1)
+def neuro_net_impl():
+	impl = MLP.MLPNetwork(3, [2, 4, 1])
+	return impl
 
-def xor_fitness(neuro_system):
+def neuro_evolutor_impl(lhs, rhs):
+	return MLP.MLPNetworkEvolutor(lhs, rhs)
+
+def xor_fitness(neuro_system, print_debug = False):
 	inputs =[[-1, -1], [-1, 1], [1, -1], [1, 1]]
 	expected = [-1, 1, 1, -1]
 	actual = [neuro_system.step(i) for i in inputs]
+
+	if print_debug == True:
+		print "Actual: " + str(actual)
 
 	diff = [(p - q[0])*(p - q[0]) for p, q in zip(expected, actual)]
 
@@ -91,19 +98,14 @@ def xor_fitness(neuro_system):
 
 for i in range(10):
 	print "=================================Run no. ", i
-	ga = GeneticAlgorithm(neuro_system_impl, xor_fitness)
+	ga = GeneticAlgorithm(neuro_net_impl, neuro_evolutor_impl, xor_fitness)
 	ga.run(GENERATIONS, POPULATION)
 	#print debug
 	leader = ga.leader
 	leader.print_debug = True
 
-	fitness = xor_fitness(leader)
+	fitness = xor_fitness(leader, True)
 	print "Leader fitness, default stability_iterations: ", fitness
 	#print "Leader weights: ", str(leader.weights.weights)
-
-	leader.stability_iterations = 101
-
-	fitness = xor_fitness(leader)
-	print "Leader fitness, nondefault stability_iterations: ", fitness
 
 
